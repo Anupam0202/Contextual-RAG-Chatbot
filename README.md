@@ -1,3 +1,4 @@
+<img width="1905" height="864" alt="Screenshot 2025-08-10 194047" src="https://github.com/user-attachments/assets/460b2200-6568-4c1c-80d8-75ce8059a212" />
 # Contextual RAG Chatbot (Gemini 2.5)
 
 An advanced, Streamlit-based Retrieval-Augmented Generation (RAG) chatbot that analyzes multiple PDF documents and answers questions with grounded, context-aware responses powered by Google's Gemini 2.5.
@@ -109,3 +110,4 @@ rag-chatbot/
 ## License
 
 This project is provided as-is, without warranties. Adapt and extend for your use case.
+

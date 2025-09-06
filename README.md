@@ -2,7 +2,9 @@
 
 A state-of-the-art **Retrieval-Augmented Generation (RAG)** chatbot built with Google Gemini AI, featuring advanced document processing, contextual conversation management, comprehensive analytics, and a modern, responsive UI. This enterprise-grade solution provides intelligent document-based question answering with thinking and reflection capabilities.
 
-![RAG Chatbot Banner](docs/images/banner.png)
+![RAG Chatbot Banner](https://github.com/user-attachments/assets/6dc6c9db-e419-4e44-9ae2-bacd4ade3b2c)
+
+![Document Upload](https://github.com/user-attachments/assets/3cc8b18d-bc78-4daa-85c0-cdf7850d58e4)
 
 ## ✨ Features
 
@@ -56,19 +58,19 @@ A state-of-the-art **Retrieval-Augmented Generation (RAG)** chatbot built with G
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Streamlit UI (app.py)                    │
-│                  [Chat | Documents | Analytics]              │
+│                     Streamlit UI (app.py)                   │
+│                  [Chat | Documents | Analytics]             │
 ├─────────────────────────────────────────────────────────────┤
-│                  Core RAG Engine (rag_core.py)               │
-│              [Planning → Retrieval → Generation]             │
+│                  Core RAG Engine (rag_core.py)              │
+│              [Planning → Retrieval → Generation]            │
 ├─────────────────────────────────────────────────────────────┤
-│   Vector Store           │          PDF Processor            │
-│  (vector_store.py)       │       (pdf_processor.py)          │
-│  • In-Memory/FAISS       │       • Text Extraction           │
-│  • Hybrid Search         │       • Semantic Chunking         │
+│   Vector Store           │          PDF Processor           │
+│  (vector_store.py)       │       (pdf_processor.py)         │
+│  • In-Memory/FAISS       │       • Text Extraction          │
+│  • Hybrid Search         │       • Semantic Chunking        │
 ├─────────────────────────────────────────────────────────────┤
-│            Infrastructure Layer (utils.py, config.py)        │
-│         [Caching | Sessions | Security | Analytics]          │
+│            Infrastructure Layer (utils.py, config.py)       │
+│         [Caching | Sessions | Security | Analytics]         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -101,12 +103,11 @@ graph TD
 ## 🚀 Installation
 
 ### Step 1: Clone the Repository
-
 ```bash
 # Clone the repository
 git clone https://github.com/Anupam0202/Contextual-RAG-Chatbot.git
 cd Contextual-RAG-Chatbot
-
+```
 
 ### Step 2: Create Virtual Environment
 
@@ -128,7 +129,7 @@ pip install --upgrade pip
 
 # Install all dependencies
 pip install -r requirements.txt
-
+```
 
 ### Step 4: Verify Installation
 
@@ -216,19 +217,19 @@ venv\Scripts\activate  # Windows
 
 # Run the application
 streamlit run app.py
+```
 
 The application will open in your default browser at `http://localhost:8501`
 
 ### Basic Workflow
 
+```bash
 #### 1. Upload Documents
 
 1. Navigate to the **📚 Documents** page
 2. Click "Browse files" or drag & drop PDF files
 3. Wait for processing to complete
 4. View document statistics and metadata
-
-![Document Upload](docs/images/document-upload.png)
 
 #### 2. Start Chatting
 
@@ -238,12 +239,11 @@ The application will open in your default browser at `http://localhost:8501`
 4. View AI responses with source citations
 
 Example queries:
-```
-- "What is the main topic of the document?"
-- "Summarize the key findings"
-- "Compare section 2 and section 5"
-- "Explain the methodology used"
-```
+
+1. "What is the main topic of the document?"
+2. "Summarize the key findings"
+3. "Compare section 2 and section 5"
+4. "Explain the methodology used"
 
 #### 3. View Analytics
 
@@ -259,6 +259,7 @@ Example queries:
 3. Configure context window
 4. Set UI preferences
 5. Click "Save All Settings"
+```
 
 ### Advanced Usage
 
@@ -392,30 +393,6 @@ report = analytics.generateInteractiveReport()
 
 # Export to Excel
 excel_data = analytics.exportToExcel(query_history)
-```
-
-### REST API Endpoints (Future)
-
-```http
-# Document upload
-POST /api/documents/upload
-Content-Type: multipart/form-data
-
-# Query processing
-POST /api/chat/query
-{
-  "query": "Your question",
-  "session_id": "optional_session_id",
-  "context_window": 5
-}
-
-# Analytics
-GET /api/analytics/report
-GET /api/analytics/export?format=excel
-
-# Settings
-GET /api/settings
-PUT /api/settings
 ```
 
 ## 🚀 Advanced Features
@@ -584,8 +561,8 @@ A: Yes, the application includes:
 **Q: Which AI models are supported?**
 A: Currently supports Google Gemini models:
 - gemini-1.5-flash (default)
-- gemini-2.5-pro
-- gemini-2.5-flash
+- gemini-1.5-pro
+- gemini-1.0-pro
 
 **Q: Can I use my own embedding model?**
 A: Yes, modify the `embedding_model` in configuration:
@@ -633,9 +610,7 @@ theme_css = {
 }
 ```
 
-## 🤝 Contributing
 
-We welcome contributions! Please follow these guidelines:
 
 ### Development Setup
 
@@ -679,4 +654,5 @@ This project wouldn't be possible without:
 ### Special Thanks
 - Google AI team for Gemini API
 - Streamlit team for the amazing framework
+
 - All contributors and users of this project

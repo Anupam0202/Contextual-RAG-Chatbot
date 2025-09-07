@@ -57,18 +57,18 @@ A state-of-the-art **Retrieval-Augmented Generation (RAG)** chatbot built with G
 ### System Overview
 
 ```
-┌───────────────────────────────────────── ──────────┐
+┌────────────────────────────────────────────────────┐
 │                     Streamlit UI (app.py)                   │
 │                  [Chat | Documents | Analytics]             │
-├─────────────────────────────────────────── ────────┤
+├────────────────────────────────────────────────────│
 │                  Core RAG Engine (rag_core.py)              │
 │              [Planning → Retrieval → Generation]           │
-├────────────────────────────────────────────── ─────┤
+├────────────────────────────────────────────────────┤
 │   Vector Store           │          PDF Processor           │
 │  (vector_store.py)       │       (pdf_processor.py)         │
 │  • In-Memory/FAISS       │       • Text Extraction          │
 │  • Hybrid Search         │       • Semantic Chunking        │
-├─────────────────────────────────────────── ────────┤
+├────────────────────────────────────────────────────┤
 │            Infrastructure Layer (utils.py, config.py)       │
 │         [Caching | Sessions | Security | Analytics]         │
 └────────────────────────────────────────────────────┘
@@ -656,4 +656,5 @@ This project wouldn't be possible without:
 - Streamlit team for the amazing framework
 
 - All contributors and users of this project
+
 

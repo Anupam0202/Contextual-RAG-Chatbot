@@ -20,6 +20,7 @@ torch>=2.0.0
 faiss-cpu>=1.7.4
 numpy>=1.26.3
 scikit-learn>=1.4.0
+scipy>=1.11.0
 
 # Data & Analytics
 pandas>=2.2.0

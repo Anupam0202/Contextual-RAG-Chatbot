@@ -64,18 +64,116 @@ class ThinkingRAG:
             raise ValueError("GOOGLE_API_KEY or GEMINI_API_KEY environment variable not set")
         
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel(self.config.model_name)
         
-        # Safety settings
-        self.safety_settings = {
-            'HATE': 'BLOCK_MEDIUM_AND_ABOVE',
-            'HARASSMENT': 'BLOCK_MEDIUM_AND_ABOVE',
-            'SEXUAL': 'BLOCK_MEDIUM_AND_ABOVE',
-            'DANGEROUS': 'BLOCK_MEDIUM_AND_ABOVE'
-        }
+        # Initialize model with fallback options
+        self.model = self._initialize_model()
+        
+        # Safety settings - Updated format for newer API
+        self.safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+        ]
         
         self.conversation_memory = []
         self.query_cache = {}
+    
+    def _initialize_model(self):
+        """Initialize Gemini model with fallback options"""
+        # List of model names to try (in order of preference)
+        model_candidates = [
+            self.config.model_name,
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro-latest",
+            "gemini-1.5-pro", 
+            "gemini-pro",
+        ]
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_candidates = []
+        for m in model_candidates:
+            if m not in seen:
+                seen.add(m)
+                unique_candidates.append(m)
+        
+        # First, try to list available models
+        available_models = self._list_available_models()
+        if available_models:
+            logger.info(f"Available Gemini models: {[m.split('/')[-1] for m in available_models[:10]]}")
+        
+        # Try each model candidate
+        last_error = None
+        for model_name in unique_candidates:
+            try:
+                logger.info(f"Trying to initialize model: {model_name}")
+                model = genai.GenerativeModel(model_name)
+                
+                # Test the model with a simple request
+                test_response = model.generate_content(
+                    "Say 'OK' if you can hear me.",
+                    generation_config=genai.types.GenerationConfig(
+                        max_output_tokens=10,
+                        temperature=0.1
+                    )
+                )
+                
+                if test_response and test_response.text:
+                    logger.info(f"✓ Successfully initialized model: {model_name}")
+                    self.config.model_name = model_name  # Update config
+                    return model
+                    
+            except Exception as e:
+                last_error = e
+                logger.warning(f"✗ Model {model_name} failed: {str(e)[:100]}")
+                continue
+        
+        # If we have available models, try them
+        if available_models:
+            for model_path in available_models:
+                model_name = model_path.split('/')[-1] if '/' in model_path else model_path
+                if model_name not in seen:
+                    try:
+                        logger.info(f"Trying available model: {model_name}")
+                        model = genai.GenerativeModel(model_name)
+                        test_response = model.generate_content(
+                            "Say 'OK'",
+                            generation_config=genai.types.GenerationConfig(max_output_tokens=10)
+                        )
+                        if test_response:
+                            logger.info(f"✓ Successfully initialized model: {model_name}")
+                            self.config.model_name = model_name
+                            return model
+                    except Exception as e:
+                        logger.warning(f"✗ Model {model_name} failed: {e}")
+                        continue
+        
+        # If no model works, raise an error with helpful message
+        error_msg = (
+            f"Could not initialize any Gemini model. Last error: {last_error}\n"
+            f"Tried models: {unique_candidates}\n"
+            f"Available models: {available_models[:5] if available_models else 'Could not list'}\n"
+            f"Please check:\n"
+            f"1. Your API key is valid\n"
+            f"2. You have access to Gemini models\n"
+            f"3. Your billing is set up (if required)"
+        )
+        raise ValueError(error_msg)
+    
+    def _list_available_models(self) -> list:
+        """List available Gemini models that support content generation"""
+        try:
+            models = []
+            for model in genai.list_models():
+                # Check if model supports generateContent
+                if 'generateContent' in model.supported_generation_methods:
+                    models.append(model.name)
+            return models
+        except Exception as e:
+            logger.warning(f"Could not list models: {e}")
+            return []
         
     async def processQuery(self, query: str, 
                           conversation_history: Optional[List[Dict[str, str]]] = None) -> AsyncGenerator[str, None]:
@@ -221,9 +319,11 @@ class ThinkingRAG:
             )
             
             # Extract JSON from response
-            jsonMatch = re.search(r'```math.*?```', response.text, re.DOTALL)
-            if jsonMatch:
-                sub_queries = json.loads(jsonMatch.group())
+            text = response.text
+            # Try to find JSON array in response
+            json_match = re.search(r'\[.*?\]', text, re.DOTALL)
+            if json_match:
+                sub_queries = json.loads(json_match.group())
                 return sub_queries if isinstance(sub_queries, list) else [query]
         except Exception as e:
             logger.warning(f"Query decomposition failed: {e}")
@@ -364,10 +464,11 @@ class ThinkingRAG:
                 )
             )
             
-            # Parse ranking
-            jsonMatch = re.search(r'```math.*?```', response.text)
-            if jsonMatch:
-                ranking = json.loads(jsonMatch.group())
+            # Parse ranking - look for JSON array
+            text = response.text
+            json_match = re.search(r'\[[\d,\s]+\]', text)
+            if json_match:
+                ranking = json.loads(json_match.group())
                 
                 # Reorder results
                 reranked = []
@@ -506,6 +607,7 @@ If improvements are needed, provide an improved version. Otherwise, return "NO_C
             logger.warning(f"Reflection failed: {e}")
             return response
 
+
 class AgenticRAG(ThinkingRAG):
     """Extended RAG with agentic capabilities"""
     
@@ -568,6 +670,7 @@ Provide a response with code examples where helpful. Show your work."""
                     yield chunk.text
         except Exception as e:
             yield f"Error with tool execution: {str(e)}"
+
 
 # Global RAG instance management
 _globalRAGInstance = None

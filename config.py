@@ -81,7 +81,7 @@ class RAGConfig:
     """Main configuration for RAG system"""
     
     # Model Configuration
-    model_name: str = "gemini-1.5-flash"
+    model_name: str = "gemini-1.5-flash-latest"
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     gemini_embedding_model: str = "models/text-embedding-004"
     temperature: float = 0.7

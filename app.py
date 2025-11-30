@@ -1349,153 +1349,494 @@ class EnhancedRAGChatbotApp:
             st.info("📝 No documents uploaded yet. Upload PDF files to get started!")
     
     def _renderEnhancedAnalyticsPage(self):
-        """Render enhanced analytics dashboard with advanced features - FIXED"""
+        """Render modern analytics dashboard with comprehensive visualizations"""
         
-        st.title("📊 Advanced Analytics Dashboard")
+        # Custom CSS for analytics page
+        st.markdown("""
+            <style>
+            .analytics-header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 2rem;
+                border-radius: 15px;
+                color: white;
+                margin-bottom: 2rem;
+                text-align: center;
+            }
+            
+            .analytics-header h1 {
+                color: white !important;
+                -webkit-text-fill-color: white !important;
+                margin-bottom: 0.5rem;
+            }
+            
+            .stat-card {
+                background: white;
+                border-radius: 12px;
+                padding: 1.5rem;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                border-left: 4px solid #667eea;
+                transition: all 0.3s ease;
+            }
+            
+            .stat-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            }
+            
+            .stat-value {
+                font-size: 2.5rem;
+                font-weight: bold;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            
+            .stat-label {
+                color: #666;
+                font-size: 0.9rem;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            
+            .grade-badge {
+                display: inline-block;
+                padding: 0.5rem 1.5rem;
+                border-radius: 25px;
+                font-weight: bold;
+                font-size: 1.5rem;
+            }
+            
+            .grade-a { background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white; }
+            .grade-b { background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); color: white; }
+            .grade-c { background: linear-gradient(135deg, #f6ad55 0%, #ed8936 100%); color: white; }
+            .grade-d { background: linear-gradient(135deg, #fc8181 0%, #f56565 100%); color: white; }
+            
+            .insight-card {
+                background: #f8f9fa;
+                border-radius: 10px;
+                padding: 1rem 1.5rem;
+                margin-bottom: 0.75rem;
+                border-left: 3px solid #667eea;
+                transition: all 0.2s ease;
+            }
+            
+            .insight-card:hover {
+                background: #e9ecef;
+                transform: translateX(5px);
+            }
+            
+            .recommendation-card {
+                background: #f0fff4;
+                border-radius: 10px;
+                padding: 1rem 1.5rem;
+                margin-bottom: 0.75rem;
+                border-left: 3px solid #48bb78;
+                transition: all 0.2s ease;
+            }
+            
+            .recommendation-card:hover {
+                background: #c6f6d5;
+                transform: translateX(5px);
+            }
+            
+            .trend-indicator {
+                display: inline-flex;
+                align-items: center;
+                padding: 0.25rem 0.75rem;
+                border-radius: 15px;
+                font-size: 0.85rem;
+                font-weight: 600;
+            }
+            
+            .trend-up { background: #c6f6d5; color: #22543d; }
+            .trend-down { background: #fed7d7; color: #742a2a; }
+            .trend-stable { background: #e2e8f0; color: #4a5568; }
+            
+            .chart-container {
+                background: white;
+                border-radius: 15px;
+                padding: 1rem;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+                margin-bottom: 1.5rem;
+            }
+            </style>
+        """, unsafe_allow_html=True)
         
-        # Generate interactive report
+        # Header
+        st.markdown("""
+            <div class="analytics-header">
+                <h1>📊 Advanced Analytics Dashboard</h1>
+                <p>Real-time insights and performance metrics</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Generate report
         report_data = self.analytics.generateInteractiveReport()
-        
-        # Executive Summary Section
-        st.markdown("## 📈 Executive Summary")
-        
         summary = report_data.get('summary', {})
         
-        col1, col2, col3, col4 = st.columns(4)
+        # Top Stats Row
+        st.markdown("### 📈 Key Performance Indicators")
+        
+        col1, col2, col3, col4, col5 = st.columns(5)
         
         with col1:
             st.markdown(f"""
-                <div class="metric-card">
-                    <h4>Total Queries</h4>
-                    <h2>{summary.get('total_queries', 0)}</h2>
+                <div class="stat-card">
+                    <div class="stat-value">{summary.get('total_queries', 0)}</div>
+                    <div class="stat-label">Total Queries</div>
                 </div>
             """, unsafe_allow_html=True)
         
         with col2:
+            avg_time = summary.get('avg_response_time', 0)
             st.markdown(f"""
-                <div class="metric-card">
-                    <h4>Avg Response Time</h4>
-                    <h2>{summary.get('avg_response_time', 0):.2f}s</h2>
+                <div class="stat-card">
+                    <div class="stat-value">{avg_time:.2f}s</div>
+                    <div class="stat-label">Avg Response</div>
                 </div>
             """, unsafe_allow_html=True)
         
         with col3:
+            confidence = summary.get('avg_confidence', 0) * 100
             st.markdown(f"""
-                <div class="metric-card">
-                    <h4>Success Rate</h4>
-                    <h2>{summary.get('success_rate', 0):.1f}%</h2>
+                <div class="stat-card">
+                    <div class="stat-value">{confidence:.1f}%</div>
+                    <div class="stat-label">Avg Confidence</div>
                 </div>
             """, unsafe_allow_html=True)
         
         with col4:
-            satisfaction = summary.get('user_satisfaction_score', 0)
-            color = 'success' if satisfaction > 80 else 'warning' if satisfaction > 60 else 'danger'
+            success_rate = summary.get('success_rate', 100)
             st.markdown(f"""
-                <div class="metric-card" style="background: linear-gradient(135deg, var(--{color}-color) 0%, var(--secondary-color) 100%);">
-                    <h4>Satisfaction Score</h4>
-                    <h2>{satisfaction:.0f}%</h2>
+                <div class="stat-card">
+                    <div class="stat-value">{success_rate:.1f}%</div>
+                    <div class="stat-label">Success Rate</div>
                 </div>
             """, unsafe_allow_html=True)
         
-        # Interactive Visualizations - FIXED to use Figure objects directly
-        st.markdown("---")
-        st.markdown("## 📊 Interactive Analytics")
+        with col5:
+            grade = summary.get('performance_grade', 'N/A')
+            grade_class = 'grade-a' if grade.startswith('A') else 'grade-b' if grade.startswith('B') else 'grade-c' if grade.startswith('C') else 'grade-d'
+            st.markdown(f"""
+                <div class="stat-card" style="text-align: center;">
+                    <span class="grade-badge {grade_class}">{grade}</span>
+                    <div class="stat-label" style="margin-top: 0.5rem;">Performance</div>
+                </div>
+            """, unsafe_allow_html=True)
         
-        # Create tabs for different visualizations
+        st.markdown("---")
+        
+        # Secondary Stats Row
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric(
+                "📊 Total Sessions",
+                summary.get('total_sessions', 0),
+                delta=None
+            )
+        
+        with col2:
+            st.metric(
+                "⏱️ Avg Session Duration",
+                f"{summary.get('avg_session_duration', 0):.1f} min",
+                delta=None
+            )
+        
+        with col3:
+            st.metric(
+                "🔍 Chunks Processed",
+                summary.get('total_chunks_processed', 0),
+                delta=None
+            )
+        
+        with col4:
+            st.metric(
+                "📈 Peak Hour",
+                summary.get('peak_hour', 'N/A'),
+                delta=None
+            )
+        
+        st.markdown("---")
+        
+        # Satisfaction Score Card
+        satisfaction = summary.get('user_satisfaction_score', 0)
+        satisfaction_color = '#48bb78' if satisfaction >= 80 else '#f6ad55' if satisfaction >= 60 else '#fc8181'
+        
+        st.markdown(f"""
+            <div style="background: linear-gradient(135deg, {satisfaction_color}20 0%, {satisfaction_color}40 100%); 
+                        border-radius: 15px; padding: 1.5rem; margin-bottom: 2rem; text-align: center;
+                        border: 2px solid {satisfaction_color};">
+                <h3 style="margin: 0; color: #333;">User Satisfaction Score</h3>
+                <div style="font-size: 4rem; font-weight: bold; color: {satisfaction_color};">{satisfaction:.0f}%</div>
+                <p style="margin: 0; color: #666;">Based on response time, confidence, and success rate</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Main Visualizations
+        st.markdown("### 📊 Interactive Visualizations")
+        
+        # Tab-based navigation for charts
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "📈 Time Series",
-            "📊 Performance",
+            "📈 Overview",
+            "⏱️ Performance",
             "🔥 Engagement",
-            "💭 Topics",
-            "🎯 Confidence"
+            "📊 Distribution",
+            "📉 Trends"
         ])
         
         with tab1:
-            if 'time_series' in report_data['visualizations']:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            if 'overview_dashboard' in report_data['visualizations']:
                 st.plotly_chart(
-                    report_data['visualizations']['time_series'],
+                    report_data['visualizations']['overview_dashboard'],
                     use_container_width=True,
-                    key="time_series_chart"
+                    key="overview_dashboard"
                 )
+            st.markdown('</div>', unsafe_allow_html=True)
         
         with tab2:
-            if 'performance' in report_data['visualizations']:
-                st.plotly_chart(
-                    report_data['visualizations']['performance'],
-                    use_container_width=True,
-                    key="performance_chart"
-                )
+            col1, col2 = st.columns([1, 1])
+            
+            with col1:
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                if 'performance_gauges' in report_data['visualizations']:
+                    st.plotly_chart(
+                        report_data['visualizations']['performance_gauges'],
+                        use_container_width=True,
+                        key="performance_gauges"
+                    )
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                if 'response_time_distribution' in report_data['visualizations']:
+                    st.plotly_chart(
+                        report_data['visualizations']['response_time_distribution'],
+                        use_container_width=True,
+                        key="response_time_dist"
+                    )
+                st.markdown('</div>', unsafe_allow_html=True)
         
         with tab3:
-            if 'engagement' in report_data['visualizations']:
-                st.plotly_chart(
-                    report_data['visualizations']['engagement'],
-                    use_container_width=True,
-                    key="engagement_chart"
-                )
+            col1, col2 = st.columns([1, 1])
+            
+            with col1:
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                if 'engagement_heatmap' in report_data['visualizations']:
+                    st.plotly_chart(
+                        report_data['visualizations']['engagement_heatmap'],
+                        use_container_width=True,
+                        key="engagement_heatmap"
+                    )
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                if 'session_analysis' in report_data['visualizations']:
+                    st.plotly_chart(
+                        report_data['visualizations']['session_analysis'],
+                        use_container_width=True,
+                        key="session_analysis"
+                    )
+                st.markdown('</div>', unsafe_allow_html=True)
         
         with tab4:
-            if 'topics' in report_data['visualizations']:
-                st.plotly_chart(
-                    report_data['visualizations']['topics'],
-                    use_container_width=True,
-                    key="topics_chart"
-                )
+            col1, col2 = st.columns([1, 1])
+            
+            with col1:
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                if 'topic_distribution' in report_data['visualizations']:
+                    st.plotly_chart(
+                        report_data['visualizations']['topic_distribution'],
+                        use_container_width=True,
+                        key="topic_distribution"
+                    )
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                if 'confidence_histogram' in report_data['visualizations']:
+                    st.plotly_chart(
+                        report_data['visualizations']['confidence_histogram'],
+                        use_container_width=True,
+                        key="confidence_histogram"
+                    )
+                st.markdown('</div>', unsafe_allow_html=True)
         
         with tab5:
-            if 'confidence' in report_data['visualizations']:
-                st.plotly_chart(
-                    report_data['visualizations']['confidence'],
-                    use_container_width=True,
-                    key="confidence_chart"
-                )
+            col1, col2 = st.columns([1, 1])
+            
+            with col1:
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                if 'time_series' in report_data['visualizations']:
+                    st.plotly_chart(
+                        report_data['visualizations']['time_series'],
+                        use_container_width=True,
+                        key="time_series"
+                    )
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                if 'trend_analysis' in report_data['visualizations']:
+                    st.plotly_chart(
+                        report_data['visualizations']['trend_analysis'],
+                        use_container_width=True,
+                        key="trend_analysis"
+                    )
+                st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown("---")
         
         # Insights and Recommendations
-        st.markdown("---")
         col1, col2 = st.columns(2)
         
         with col1:
             st.markdown("### 💡 Key Insights")
             insights = report_data.get('insights', [])
             for insight in insights:
-                st.markdown(f"""
-                    <div class="card" style="padding: 1rem; margin-bottom: 0.5rem;">
-                        {insight}
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f'<div class="insight-card">{insight}</div>', unsafe_allow_html=True)
         
         with col2:
             st.markdown("### 🎯 Recommendations")
             recommendations = report_data.get('recommendations', [])
             for rec in recommendations:
+                st.markdown(f'<div class="recommendation-card">{rec}</div>', unsafe_allow_html=True)
+        
+        # Trend Analysis Section
+        st.markdown("---")
+        st.markdown("### 📉 Trend Analysis")
+        
+        trends = report_data.get('trends', {})
+        if trends and 'message' not in trends:
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                rt_trend = trends.get('response_time_trend', 'stable')
+                rt_change = trends.get('response_time_change_pct', 0)
+                trend_class = 'trend-up' if rt_trend == 'improving' else 'trend-down' if rt_trend == 'degrading' else 'trend-stable'
+                trend_icon = '📉' if rt_trend == 'improving' else '📈' if rt_trend == 'degrading' else '➡️'
+                
                 st.markdown(f"""
-                    <div class="card" style="padding: 1rem; margin-bottom: 0.5rem;">
-                        {rec}
+                    <div class="stat-card">
+                        <h4>Response Time Trend</h4>
+                        <span class="trend-indicator {trend_class}">
+                            {trend_icon} {rt_trend.title()} ({rt_change:+.1f}%)
+                        </span>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                conf_trend = trends.get('confidence_trend', 'stable')
+                conf_change = trends.get('confidence_change_pct', 0)
+                trend_class = 'trend-up' if conf_trend == 'improving' else 'trend-down' if conf_trend == 'declining' else 'trend-stable'
+                trend_icon = '📈' if conf_trend == 'improving' else '📉' if conf_trend == 'declining' else '➡️'
+                
+                st.markdown(f"""
+                    <div class="stat-card">
+                        <h4>Confidence Trend</h4>
+                        <span class="trend-indicator {trend_class}">
+                            {trend_icon} {conf_trend.title()} ({conf_change:+.1f}%)
+                        </span>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            with col3:
+                vol_trend = trends.get('query_volume_trend', 'stable')
+                trend_class = 'trend-up' if vol_trend == 'increasing' else 'trend-down' if vol_trend == 'decreasing' else 'trend-stable'
+                trend_icon = '📈' if vol_trend == 'increasing' else '📉' if vol_trend == 'decreasing' else '➡️'
+                
+                st.markdown(f"""
+                    <div class="stat-card">
+                        <h4>Query Volume Trend</h4>
+                        <span class="trend-indicator {trend_class}">
+                            {trend_icon} {vol_trend.title()}
+                        </span>
                     </div>
                 """, unsafe_allow_html=True)
         
-        # Export Options
+        # Predictions Section
         st.markdown("---")
-        st.markdown("## 📥 Export Options")
+        st.markdown("### 🔮 Predictions")
+        
+        predictions = report_data.get('predictions', {})
+        if predictions and 'message' not in predictions:
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("🕐 Peak Hour", f"{predictions.get('predicted_peak_hour', 0)}:00")
+            
+            with col2:
+                st.metric("📊 Expected Queries/Hour", predictions.get('expected_queries_next_hour', 0))
+            
+            with col3:
+                st.metric("⏱️ Predicted Response", f"{predictions.get('predicted_response_time', 0):.2f}s")
+            
+            with col4:
+                st.metric("🎯 Confidence Forecast", f"{predictions.get('confidence_forecast', 0):.1%}")
+        else:
+            st.info("📊 Generate more queries to enable predictions")
+        
+        # Detailed Metrics Expander
+        st.markdown("---")
+        with st.expander("📋 Detailed Metrics", expanded=False):
+            detailed = report_data.get('detailed_metrics', {})
+            performance = report_data.get('performance_breakdown', {})
+            
+            if detailed:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("#### Response Time Percentiles")
+                    percentiles = detailed.get('percentiles', {})
+                    if percentiles:
+                        perc_df = pd.DataFrame({
+                            'Percentile': ['P25', 'P50 (Median)', 'P75', 'P95', 'P99'],
+                            'Response Time (s)': [
+                                percentiles.get('response_time_p25', 0),
+                                percentiles.get('response_time_p50', 0),
+                                percentiles.get('response_time_p75', 0),
+                                percentiles.get('response_time_p95', 0),
+                                percentiles.get('response_time_p99', 0)
+                            ]
+                        })
+                        st.dataframe(perc_df, use_container_width=True)
+                
+                with col2:
+                    st.markdown("#### Performance Breakdown")
+                    if performance:
+                        rt_breakdown = performance.get('response_time_breakdown', {})
+                        if rt_breakdown:
+                            breakdown_df = pd.DataFrame([
+                                {'Category': 'Excellent (<1s)', 'Count': rt_breakdown.get('excellent', {}).get('count', 0), 'Percentage': f"{rt_breakdown.get('excellent', {}).get('percentage', 0)}%"},
+                                {'Category': 'Good (1-2s)', 'Count': rt_breakdown.get('good', {}).get('count', 0), 'Percentage': f"{rt_breakdown.get('good', {}).get('percentage', 0)}%"},
+                                {'Category': 'Acceptable (2-5s)', 'Count': rt_breakdown.get('acceptable', {}).get('count', 0), 'Percentage': f"{rt_breakdown.get('acceptable', {}).get('percentage', 0)}%"},
+                                {'Category': 'Slow (>5s)', 'Count': rt_breakdown.get('slow', {}).get('count', 0), 'Percentage': f"{rt_breakdown.get('slow', {}).get('percentage', 0)}%"}
+                            ])
+                            st.dataframe(breakdown_df, use_container_width=True)
+        
+        # Export Section
+        st.markdown("---")
+        st.markdown("### 📥 Export Reports")
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("📈 Generate Full Report", key="generate_report", use_container_width=True):
+            if st.button("📊 Generate Full Report", key="gen_report", use_container_width=True):
                 with st.spinner("Generating comprehensive report..."):
-                    # Generate HTML report
                     report_html = self._generateHTMLReport(report_data)
                     st.download_button(
-                        label="📥 Download Report (HTML)",
+                        label="📥 Download HTML Report",
                         data=report_html,
                         file_name=f"analytics_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html",
-                        mime="text/html"
+                        mime="text/html",
+                        key="download_html"
                     )
         
         with col2:
-            if st.button("📥 Export to Excel", key="export_excel", use_container_width=True):
+            if st.button("📈 Export to Excel", key="export_excel", use_container_width=True):
                 with st.spinner("Creating Excel file..."):
-                    # Convert query history to dict format
                     query_history_dict = [
                         {
                             'timestamp': q.timestamp.isoformat(),
@@ -1513,12 +1854,15 @@ class EnhancedRAGChatbotApp:
                         label="📥 Download Excel",
                         data=excel_data,
                         file_name=f"analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="download_excel"
                     )
         
         with col3:
-            if st.button("📊 Export Charts", key="export_charts", use_container_width=True):
-                st.info("Chart export functionality coming soon!")
+            if st.button("🔄 Refresh Analytics", key="refresh_analytics", use_container_width=True):
+                self.analytics._cache.clear()
+                st.success("Analytics cache cleared!")
+                st.rerun()
     
     def _renderEnhancedSettingsPage(self):
         """Render enhanced settings page with context window control"""

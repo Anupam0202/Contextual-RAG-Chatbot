@@ -1,3 +1,4 @@
+
 """
 Enhanced utility functions with circuit breaker and improved error handling
 """
@@ -18,8 +19,307 @@ from collections import defaultdict, deque
 from enum import Enum
 import pickle
 import uuid
+from dataclasses import dataclass
+import base64
 
 logger = logging.getLogger(__name__)
+
+# Input Sanitization - Prevents prompt injection and malicious input attacks
+@dataclass
+class SanitizationResult:
+    """Result of input sanitization"""
+    sanitized_text: str
+    is_safe: bool
+    warnings: List[str]
+    original_length: int
+    sanitized_length: int
+
+
+class InputSanitizer:
+    """
+    Comprehensive input sanitization for user queries
+    Prevents prompt injection, XSS, and other attacks
+    """
+    
+    # Patterns that indicate prompt injection attempts
+    DANGEROUS_PATTERNS = [
+        # Instruction override attempts
+        (r'ignore\s+(all\s+)?previous\s+instructions?', 'instruction_override'),
+        (r'disregard\s+(all\s+)?above', 'instruction_override'),
+        (r'forget\s+(everything|all)\s+(you|we)\s+(discussed|said)', 'context_manipulation'),
+        
+        # System prompt exposure
+        (r'(show|display|reveal|output)\s+(your\s+)?(system\s+)?(prompt|instructions)', 'prompt_exposure'),
+        (r'what\s+(is|are)\s+your\s+(instructions|rules|prompt)', 'prompt_exposure'),
+        (r'repeat\s+your\s+(instructions|prompt|rules)', 'prompt_exposure'),
+        
+        # Credential extraction
+        (r'(api|access)\s*key', 'credential_extraction'),
+        (r'(password|secret|token)', 'credential_extraction'),
+        
+        # Code injection
+        (r'<script[>\s]', 'xss_attempt'),
+        (r'javascript:', 'xss_attempt'),
+        (r'eval\s*\(', 'code_injection'),
+        (r'exec\s*\(', 'code_injection'),
+        
+        # SQL injection patterns
+        (r"'\s*(OR|AND)\s*'?\d*'?\s*=\s*'?\d", 'sql_injection'),
+        (r';?\s*DROP\s+TABLE', 'sql_injection'),
+        (r'UNION\s+SELECT', 'sql_injection'),
+        
+        # Role/mode manipulation
+        (r'you\s+are\s+now\s+(a\s+)?(developer|admin|root)', 'role_manipulation'),
+        (r'(enter|switch\s+to)\s+(developer|admin|debug)\s+mode', 'mode_manipulation'),
+        
+        # Data exfiltration
+        (r'output\s+(all\s+)?(user\s+)?(data|information|content)', 'data_exfiltration'),
+        (r'list\s+(all\s+)?(users|files|documents)', 'data_exfiltration'),
+    ]
+    
+    # Maximum allowed length
+    MAX_LENGTH = 5000
+    
+    # Minimum meaningful length
+    MIN_LENGTH = 1
+    
+    # Maximum repetition allowed
+    MAX_CHAR_REPETITION = 50
+    
+    @classmethod
+    def sanitize(cls, user_input: str, strict: bool = False) -> SanitizationResult:
+        """
+        Sanitize user input
+        
+        Args:
+            user_input: Raw user input
+            strict: If True, reject any suspicious patterns. If False, sanitize and warn.
+        
+        Returns:
+            SanitizationResult with sanitized text and safety info
+        """
+        if not user_input:
+            return SanitizationResult(
+                sanitized_text="",
+                is_safe=False,
+                warnings=["Empty input"],
+                original_length=0,
+                sanitized_length=0
+            )
+        
+        original_length = len(user_input)
+        warnings = []
+        is_safe = True
+        
+        # 1. Length validation
+        if len(user_input) > cls.MAX_LENGTH:
+            user_input = user_input[:cls.MAX_LENGTH]
+            warnings.append(f"Input truncated from {original_length} to {cls.MAX_LENGTH} characters")
+        
+        if len(user_input) < cls.MIN_LENGTH:
+            return SanitizationResult(
+                sanitized_text="",
+                is_safe=False,
+                warnings=["Input too short"],
+                original_length=original_length,
+                sanitized_length=0
+            )
+        
+        # 2. Check for dangerous patterns
+        for pattern, threat_type in cls.DANGEROUS_PATTERNS:
+            if re.search(pattern, user_input, re.IGNORECASE | re.MULTILINE):
+                warning = f"Potential {threat_type} detected: pattern '{pattern[:30]}...'"
+                warnings.append(warning)
+                logger.warning(f"Suspicious input detected: {warning}")
+                
+                if strict:
+                    return SanitizationResult(
+                        sanitized_text="",
+                        is_safe=False,
+                        warnings=warnings,
+                        original_length=original_length,
+                        sanitized_length=0
+                    )
+                else:
+                    is_safe = False
+        
+        # 3. Remove control characters (except newline and tab)
+        sanitized = ''.join(
+            char for char in user_input 
+            if ord(char) >= 32 or char in '\n\t\r'
+        )
+        
+        # 4. Check for excessive character repetition (possible DoS)
+        if cls._has_excessive_repetition(sanitized):
+            warnings.append("Excessive character repetition detected")
+            sanitized = cls._reduce_repetition(sanitized)
+        
+        # 5. Normalize whitespace
+        sanitized = ' '.join(sanitized.split())
+        
+        # 6. Remove potentially dangerous Unicode
+        sanitized = cls._remove_dangerous_unicode(sanitized)
+        
+        # 7. Check for encoded attacks
+        if cls._check_encoded_attacks(sanitized):
+            warnings.append("Potentially encoded malicious content detected")
+            is_safe = False
+        
+        sanitized_length = len(sanitized)
+        
+        return SanitizationResult(
+            sanitized_text=sanitized,
+            is_safe=is_safe,
+            warnings=warnings,
+            original_length=original_length,
+            sanitized_length=sanitized_length
+        )
+    
+    @classmethod
+    def _has_excessive_repetition(cls, text: str) -> bool:
+        """Check if text has excessive character repetition"""
+        if len(text) < 10:
+            return False
+        
+        # Check for repeated characters
+        max_repeat = 0
+        current_char = text[0]
+        current_count = 1
+        
+        for char in text[1:]:
+            if char == current_char:
+                current_count += 1
+                max_repeat = max(max_repeat, current_count)
+            else:
+                current_char = char
+                current_count = 1
+        
+        return max_repeat > cls.MAX_CHAR_REPETITION
+    
+    @classmethod
+    def _reduce_repetition(cls, text: str) -> str:
+        """Reduce excessive character repetition"""
+        result = []
+        current_char = None
+        count = 0
+        max_allowed = 10
+        
+        for char in text:
+            if char == current_char:
+                count += 1
+                if count <= max_allowed:
+                    result.append(char)
+            else:
+                current_char = char
+                count = 1
+                result.append(char)
+        
+        return ''.join(result)
+    
+    @classmethod
+    def _remove_dangerous_unicode(cls, text: str) -> str:
+        """Remove potentially dangerous Unicode characters"""
+        # Remove zero-width characters, direction overrides, etc.
+        dangerous_unicode = [
+            '\u200B',  # Zero-width space
+            '\u200C',  # Zero-width non-joiner
+            '\u200D',  # Zero-width joiner
+            '\u202A',  # Left-to-right embedding
+            '\u202B',  # Right-to-left embedding
+            '\u202C',  # Pop directional formatting
+            '\u202D',  # Left-to-right override
+            '\u202E',  # Right-to-left override
+            '\uFEFF',  # Zero-width no-break space
+        ]
+        
+        for char in dangerous_unicode:
+            text = text.replace(char, '')
+        
+        return text
+    
+    @classmethod
+    def _check_encoded_attacks(cls, text: str) -> bool:
+        """Check for URL-encoded or base64-encoded attacks"""
+        # Check for URL encoding of dangerous patterns
+        url_encoded_patterns = [
+            '%3Cscript',  # <script
+            '%27%20OR%20',  # ' OR 
+            '%22%20OR%20',  # " OR
+        ]
+        
+        for pattern in url_encoded_patterns:
+            if pattern in text:
+                return True
+        
+        # Check for suspicious base64 patterns
+        if re.search(r'[A-Za-z0-9+/]{20,}={0,2}', text):
+            # Could be base64, check if it decodes to something suspicious
+            try:
+                decoded = base64.b64decode(text).decode('utf-8', errors='ignore')
+                for pattern, _ in cls.DANGEROUS_PATTERNS:
+                    if re.search(pattern, decoded, re.IGNORECASE):
+                        return True
+            except Exception:
+                pass
+        
+        return False
+    
+    @classmethod
+    def sanitize_for_prompt(cls, user_input: str) -> str:
+        """
+        Sanitize input specifically for LLM prompts
+        More aggressive than general sanitization
+        """
+        result = cls.sanitize(user_input, strict=False)
+        
+        if not result.is_safe:
+            # Add clear markers that this is user input
+            sanitized = f"[USER QUERY]: {result.sanitized_text}"
+            sanitized += "\n[Note: Input contained suspicious patterns and was sanitized]"
+            return sanitized
+        
+        return f"[USER QUERY]: {result.sanitized_text}"
+    
+    @classmethod
+    def validate_file_content(cls, content: str, max_length: int = 100000) -> Tuple[bool, str]:
+        """
+        Validate file content before processing
+        
+        Args:
+            content: File content
+            max_length: Maximum allowed length
+        
+        Returns:
+            (is_valid, error_message)
+        """
+        if not content:
+            return False, "Empty content"
+        
+        if len(content) > max_length:
+            return False, f"Content too large: {len(content)} > {max_length}"
+        
+        # Check for binary content masquerading as text
+        null_count = content.count('\x00')
+        if null_count > len(content) * 0.01:  # More than 1% null bytes
+            return False, "Content appears to be binary"
+        
+        return True, "Valid"
+
+
+# Convenience function for input sanitization
+def sanitize_user_input(user_input: str, strict: bool = False) -> SanitizationResult:
+    """
+    Convenience function to sanitize user input
+    
+    Args:
+        user_input: Raw user input
+        strict: If True, reject suspicious input. If False, sanitize and warn.
+    
+    Returns:
+        SanitizationResult
+    """
+    return InputSanitizer.sanitize(user_input, strict=strict)
+
 
 # Circuit Breaker Implementation
 class CircuitBreakerState(Enum):

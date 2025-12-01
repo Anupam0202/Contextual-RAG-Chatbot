@@ -19,7 +19,7 @@ import google.generativeai as genai
 from config import getGlobalConfig, getSecurityConfig
 from vector_store import getGlobalVectorStore, SearchResult
 from pdf_processor import DocumentChunk
-from input_sanitizer import InputSanitizer
+from utils import InputSanitizer
 
 
 logger = logging.getLogger(__name__)

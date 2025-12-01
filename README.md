@@ -207,7 +207,6 @@ conversation = [
     {"role": "user", "content": "What is this about?"},
     {"role": "assistant", "content": "It's about..."}
 ]
-
 async for response in rag.processQuery(
     "Tell me more", 
     conversation_history=conversation

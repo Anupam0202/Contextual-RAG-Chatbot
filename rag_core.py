@@ -19,6 +19,8 @@ import google.generativeai as genai
 from config import getGlobalConfig, getSecurityConfig
 from vector_store import getGlobalVectorStore, SearchResult
 from pdf_processor import DocumentChunk
+from input_sanitizer import InputSanitizer
+
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +61,9 @@ class ThinkingRAG:
         self.vector_store = getGlobalVectorStore()
         
         # Initialize Gemini client
-        api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+        api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            raise ValueError("GOOGLE_API_KEY or GEMINI_API_KEY environment variable not set")
+            raise ValueError("GEMINI_API_KEY environment variable not set")
         
         genai.configure(api_key=api_key)
         
@@ -79,88 +81,110 @@ class ThinkingRAG:
         self.conversation_memory = []
         self.query_cache = {}
     
+    def _safe_get_text(self, response) -> Optional[str]:
+        """Safely extract text from response, handling safety filter blocks"""
+        try:
+            # Check if response has candidates and they have content
+            if hasattr(response, 'candidates') and response.candidates:
+                candidate = response.candidates[0]
+                # Check finish_reason: 1=STOP (normal), 2=SAFETY (blocked)
+                if hasattr(candidate, 'finish_reason') and candidate.finish_reason == 2:
+                    logger.warning("Response blocked by safety filters")
+                    return None
+            
+            # Try to get text
+            if hasattr(response, 'text'):
+                return response.text
+            return None
+        except Exception as e:
+            logger.warning(f"Error extracting text from response: {e}")
+            return None
+    
     def _initialize_model(self):
-        """Initialize Gemini model with fallback options"""
-        # List of model names to try (in order of preference)
+        """Initialize Gemini model with comprehensive fallback options and quota handling"""
+        # Comprehensive list of ALL Gemini models (in order of preference)
+        # This ensures the app always works even if specific models are deprecated or quota exceeded
         model_candidates = [
+            # Start with configured model
             self.config.model_name,
+            
+            # Gemini 2.0 models (newest, experimental)
+            "gemini-2.0-flash-exp",
+            "gemini-2.0-flash",
+            
+            # Gemini 1.5 Flash models (fast, recommended for most use cases)
             "gemini-1.5-flash-latest",
             "gemini-1.5-flash",
+            "gemini-1.5-flash-002",
+            "gemini-1.5-flash-001",
+            "gemini-1.5-flash-exp-0827",
+            "gemini-1.5-flash-8b-latest",
+            "gemini-1.5-flash-8b",
+            "gemini-1.5-flash-8b-001",
+            "gemini-1.5-flash-8b-exp-0827",
+            
+            # Gemini 1.5 Pro models (more capable, higher quality)
             "gemini-1.5-pro-latest",
-            "gemini-1.5-pro", 
+            "gemini-1.5-pro",
+            "gemini-1.5-pro-002",
+            "gemini-1.5-pro-001",
+            "gemini-1.5-pro-exp-0801",
+            "gemini-1.5-pro-exp-0827",
+            
+            # Gemini 1.0 Pro models (legacy, widely compatible)
             "gemini-pro",
+            "gemini-1.0-pro",
+            "gemini-1.0-pro-001",
+            "gemini-1.0-pro-latest",
+            
+            # Experimental models
+            "gemini-exp-1121",
+            "gemini-exp-1114",
+            "learnlm-1.5-pro-experimental",
         ]
         
         # Remove duplicates while preserving order
         seen = set()
         unique_candidates = []
         for m in model_candidates:
-            if m not in seen:
+            if m and m not in seen:
                 seen.add(m)
                 unique_candidates.append(m)
         
-        # First, try to list available models
-        available_models = self._list_available_models()
-        if available_models:
-            logger.info(f"Available Gemini models: {[m.split('/')[-1] for m in available_models[:10]]}")
-        
-        # Try each model candidate
+        # Try each model candidate until one works
         last_error = None
         for model_name in unique_candidates:
             try:
-                logger.info(f"Trying to initialize model: {model_name}")
+                logger.info(f"Attempting to initialize model: {model_name}")
                 model = genai.GenerativeModel(model_name)
                 
-                # Test the model with a simple request
+                # Test the model with a simple request to verify it works
                 test_response = model.generate_content(
-                    "Say 'OK' if you can hear me.",
+                    "Hello",
                     generation_config=genai.types.GenerationConfig(
-                        max_output_tokens=10,
-                        temperature=0.1
+                        temperature=0.1,
+                        max_output_tokens=10
                     )
                 )
                 
-                if test_response and test_response.text:
-                    logger.info(f"✓ Successfully initialized model: {model_name}")
-                    self.config.model_name = model_name  # Update config
-                    return model
-                    
+                # If we get here, the model works!
+                logger.info(f"Successfully initialized model: {model_name}")
+                return model
+                
             except Exception as e:
                 last_error = e
-                logger.warning(f"✗ Model {model_name} failed: {str(e)[:100]}")
+                logger.warning(f"Failed to initialize {model_name}: {e}")
                 continue
         
-        # If we have available models, try them
+        # If all models failed, raise an error with helpful message
+        available_models = self._list_available_models()
+        error_msg = f"Failed to initialize any Gemini model. Last error: {last_error}"
         if available_models:
-            for model_path in available_models:
-                model_name = model_path.split('/')[-1] if '/' in model_path else model_path
-                if model_name not in seen:
-                    try:
-                        logger.info(f"Trying available model: {model_name}")
-                        model = genai.GenerativeModel(model_name)
-                        test_response = model.generate_content(
-                            "Say 'OK'",
-                            generation_config=genai.types.GenerationConfig(max_output_tokens=10)
-                        )
-                        if test_response:
-                            logger.info(f"✓ Successfully initialized model: {model_name}")
-                            self.config.model_name = model_name
-                            return model
-                    except Exception as e:
-                        logger.warning(f"✗ Model {model_name} failed: {e}")
-                        continue
+            error_msg += f"\n\nAvailable models in your account: {', '.join(available_models[:5])}"
+        else:
+            error_msg += "\n\nCould not fetch available models. Please check your API key and quota."
         
-        # If no model works, raise an error with helpful message
-        error_msg = (
-            f"Could not initialize any Gemini model. Last error: {last_error}\n"
-            f"Tried models: {unique_candidates}\n"
-            f"Available models: {available_models[:5] if available_models else 'Could not list'}\n"
-            f"Please check:\n"
-            f"1. Your API key is valid\n"
-            f"2. You have access to Gemini models\n"
-            f"3. Your billing is set up (if required)"
-        )
-        raise ValueError(error_msg)
+        raise RuntimeError(error_msg)
     
     def _list_available_models(self) -> list:
         """List available Gemini models that support content generation"""
@@ -285,7 +309,12 @@ class ThinkingRAG:
                 )
             )
             
-            intentStr = response.text.strip().upper()
+            text = self._safe_get_text(response)
+            if not text:
+                logger.warning("Intent classification returned empty response")
+                return QueryIntent.FACTUAL
+            
+            intentStr = text.strip().upper()
             
             # Map to enum value
             for intent in QueryIntent:
@@ -319,7 +348,10 @@ class ThinkingRAG:
             )
             
             # Extract JSON from response
-            text = response.text
+            text = self._safe_get_text(response)
+            if not text:
+                logger.warning("Query decomposition returned empty response")
+                return [query]
             # Try to find JSON array in response
             json_match = re.search(r'\[.*?\]', text, re.DOTALL)
             if json_match:
@@ -465,7 +497,10 @@ class ThinkingRAG:
             )
             
             # Parse ranking - look for JSON array
-            text = response.text
+            text = self._safe_get_text(response)
+            if not text:
+                logger.warning("Reranking returned empty response")
+                return results
             json_match = re.search(r'\[[\d,\s]+\]', text)
             if json_match:
                 ranking = json.loads(json_match.group())
@@ -518,6 +553,10 @@ class ThinkingRAG:
     def _buildContextPrompt(self, context: GenerationContext) -> str:
         """Build prompt with retrieved context and conversation history - FIXED"""
         
+        # P0 FIX #2: Sanitize query as defense-in-depth measure
+        # Even though app.py sanitizes, we do it here too for API usage
+        safe_query = InputSanitizer.sanitize_for_prompt(context.query)
+        
         # Format retrieved chunks
         contextText = "\n\n".join([
             f"[Source {i+1} - Page {r.chunk.page_number}]:\n{r.chunk.content}"
@@ -539,7 +578,7 @@ class ThinkingRAG:
         # Intent-specific instructions
         intentInstructions = self._getIntentInstructions(context.plan.intent)
         
-        # Construct full prompt with clear separation
+        # Construct full prompt with clear separation and sanitized query
         prompt = f"""{intentInstructions}
 
 {conversationContext}
@@ -547,7 +586,7 @@ class ThinkingRAG:
 Retrieved Information:
 {contextText}
 
-Current Query: {context.query}
+{safe_query}
 
 Instructions:
 1. Use the conversation context to understand the flow of discussion
@@ -599,10 +638,15 @@ If improvements are needed, provide an improved version. Otherwise, return "NO_C
                 )
             )
             
-            if "NO_CHANGES_NEEDED" in reflectionResponse.text:
+            text = self._safe_get_text(reflectionResponse)
+            if not text:
+                logger.warning("Reflection returned empty response")
                 return response
             
-            return reflectionResponse.text
+            if "NO_CHANGES_NEEDED" in text:
+                return response
+            
+            return text
         except Exception as e:
             logger.warning(f"Reflection failed: {e}")
             return response

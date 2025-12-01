@@ -265,7 +265,7 @@ def validateConfiguration(config: RAGConfig) -> tuple[bool, list[str]]:
     if config.context_window < 1 or config.context_window > 20:
         errors.append("Context window must be between 1 and 20 messages")
     
-    if not os.getenv("GOOGLE_API_KEY") and not os.getenv("GEMINI_API_KEY"):
-        errors.append("GOOGLE_API_KEY or GEMINI_API_KEY not found in environment")
+    if not os.getenv("GEMINI_API_KEY"):
+        errors.append("GEMINI_API_KEY not found in environment")
     
     return len(errors) == 0, errors
